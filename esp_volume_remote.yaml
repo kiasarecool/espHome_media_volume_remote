@@ -1,18 +1,18 @@
 ## SET UP
 substitutions:
-  #GENRAL
+  #BOARD
   esphome_node_name: "esp32-feather-s2"
   board_model: "lolin_s2_mini"
   framework_type: "arduino"
-  # leave ap pass blank for no pass, who remembers all their node hotspot passwords anyway?
+  # leave ap_pass blank for no pass, who remembers all their node hotspot passwords anyway?
   ap_pass: ""
   esp_name: "ESP Volume Box"
   
-  #KEYS
+  # YOUR KEYS
   ota_pass: "Don't forget me"
   encryption_key: "please Don't forget me either "
 
-  #DISPLAY
+  #DISPLAY INFO
   display_platform: "ssd1351_spi"
   display_model: "SSD1351 128x128"
   spi_clk: "10"
@@ -20,19 +20,20 @@ substitutions:
   pin_reset: "14"
   pin_cs: "12"
   pin_dc: "13"
-  #ROTARY ENCODER
+  #ROTARY ENCODER PINS
   rotaty_clk: "7"
   rotaty_a: "8"
   rotaty_b: "9" 
-
+#____________________________________________
 ## entity for Volume control/level
   media_player: "media_player.kodi_appletv"
+#____________________________________________
 
+#____________________________________________
 ##entity for text/titles (app name, artist, title)
   media_player2: "media_player.appletv_4k"
-
-
-
+#____________________________________________
+#change wifi info below if you do not use !secret wifi_
 
 #######################################################
 #                   end user inputs                   #

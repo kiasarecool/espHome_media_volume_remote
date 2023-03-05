@@ -1,17 +1,18 @@
 ## SET UP
 substitutions:
-  #GENRAL
+  #BOARD
   esphome_node_name: "esp32-feather-s2"
   board_model: "lolin_s2_mini"
   framework_type: "arduino"
+  # leave ap_pass blank for no pass, who remembers all their node hotspot passwords anyway?
   ap_pass: ""
   esp_name: "ESP Volume Box"
-  time_id: "esptime"
-  #KEYS
-  ota_pass: "9924eb48fd975e552539319184eaa9e7"
-  encryption_key: "pzbulASkvRmJYZ5APG/0Y+ykKjnoIF96d8OXPGq8pnQ="
+  
+  # YOUR KEYS
+  ota_pass: "Don't forget me"
+  encryption_key: "please Don't forget me either "
 
-  #DISPLAY
+  #DISPLAY INFO
   display_platform: "ssd1351_spi"
   display_model: "SSD1351 128x128"
   spi_clk: "10"
@@ -19,21 +20,21 @@ substitutions:
   pin_reset: "14"
   pin_cs: "12"
   pin_dc: "13"
-  #ROTARY ENCODER
+  #ROTARY ENCODER PINS
   rotaty_clk: "7"
   rotaty_a: "8"
   rotaty_b: "9" 
-#  light_entity: "light.closet_light"
+#____________________________________________
 ## entity for Volume control/level
   media_player: "media_player.kodi_appletv"
-##entity for app name, artist, title entity 
+#____________________________________________
+
+#____________________________________________
+##entity for text/titles (app name, artist, title)
   media_player2: "media_player.appletv_4k"
+#____________________________________________
+#change wifi info below if you do not use !secret wifi_
 
-
-
-  rotary_id: "knob"
-  rotary_click_id: "click"
-  display_id: "oled"
 #######################################################
 #                   end user inputs                   #
 #######################################################
@@ -64,7 +65,7 @@ wifi:
 binary_sensor:
   - platform: gpio
     name: '${esp_name} Click'
-    id: ${rotary_click_id}
+    id: bam
     pin: ${rotaty_clk}
     internal: true
     filters:      
@@ -96,14 +97,14 @@ switch:
     restore_state: ON
     id: switch1
     turn_on_action:
-      - lambda: id(${display_id}).turn_on();
+      - lambda: id(magic_square).turn_on();
     turn_off_action:
-      - lambda: id(${display_id}).turn_off();
+      - lambda: id(magic_square).turn_off();
 ## ROTARY ENCODER KNOB
 sensor:
   - platform: rotary_encoder
     name: "${esp_name} Rotary Encoder"
-    id: ${rotary_id}
+    id: spin_it
     pin_a: ${rotaty_a}
     pin_b: ${rotaty_b}
     resolution: 1
@@ -119,7 +120,7 @@ sensor:
             - homeassistant.service:
                 service: media_player.volume_set
                 data_template:                 
-                  volume_level: !lambda "return id(${rotary_id}).state / 100;"
+                  volume_level: !lambda "return id(spin_it).state / 100;"
                   entity_id: ${media_player}                  
     on_anticlockwise:
           then:     
@@ -127,10 +128,9 @@ sensor:
             - homeassistant.service:
                 service: media_player.volume_set
                 data_template:                 
-                  volume_level: !lambda "return id(${rotary_id}).state / 100;"
+                  volume_level: !lambda "return id(spin_it).state / 100;"
                   entity_id: ${media_player}     
     internal: true     
-
   - platform: homeassistant
     id: media_vol
     entity_id: ${media_player}
@@ -139,11 +139,8 @@ sensor:
     on_value:
       - delay: 5s
       - sensor.rotary_encoder.set_value:
-         id: ${rotary_id}
+         id: spin_it
          value: !lambda "return id(media_vol).state * 100;"
-        
-###############
-
 text_sensor:
 
   - platform: homeassistant
@@ -158,8 +155,6 @@ text_sensor:
     entity_id: ${media_player2}
     id: app
     attribute: app_name
-
-
 font:
   - file: 'fonts/arial.ttf'
     id: font1
@@ -224,7 +219,7 @@ spi:
 display:
   - platform: ${display_platform}
     model: "${display_model}"
-    id: ${display_id}
+    id: magic_square
     reset_pin: ${pin_reset}
     cs_pin: ${pin_cs}
     dc_pin: ${pin_dc}
@@ -232,12 +227,12 @@ display:
     brightness: 95%
     lambda: |-
       it.rectangle(0, 0, 128, 128, id(violet));
-      it.filled_rectangle(14, 3, id(${rotary_id}).state, 18, id(green));
+      it.filled_rectangle(14, 3, id(spin_it).state, 18, id(green));
       it.rectangle(13, 2, 102, 20, id(blue));
       it.printf(64, 40, id(font3), id(green), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
       it.print(2, 25, id(mdi2), id(red), "\U000F075E");
       it.print(100, 25, id(mdi2), id(green), "\U000F075D");
       it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
-      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(${rotary_id}).state);
+      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(spin_it).state);
       it.printf(64, 123, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
       it.line(0, 110, 128, 110, id(violet));
