@@ -1,6 +1,8 @@
 # espHome_media_volume_remote
 Control Media entity volume with a display showing the volume level, app, artist and title on screen. Added neopixel ring for color feedback on Volume level
 
+All text is on screen dynamic and changes based on what app, artist and title. ( or channel and show) 
+
 ![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/1.jpg)
 ![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/2.jpg)
 ![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/3.jpg)
