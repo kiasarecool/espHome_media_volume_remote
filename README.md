@@ -1,5 +1,9 @@
 # espHome_media_volume_remote
 Control Media entity volume with a display showing the volume level, app, artist and title on screen. Added neopixel ring for color feedback on Volume level
+Click to mute
+Hold for 1s to un-mute
+Clockwise = Volume +
+Anti-Clockwise = Volume - 
 
 All text is on screen dynamic and changes based on what app, artist and title. ( or channel and show) 
 
