@@ -24,6 +24,7 @@ substitutions:
   rotaty_b: "9" 
   num_leds: "12"
   media_player2: "media_player.appletv_4k"
+  # media player 2 is for artist title and app name, other is only volume. you can set both to the same entity
   media_player: "media_player.kodi_appletv"
   rotary_id: "knob"
   rotary_click_id: "click"
@@ -34,18 +35,14 @@ substitutions:
   
 esphome:
   name: ${esphome_node_name}
-## NAME YOUR BOARD TYPE
 esp32:
   board: ${board_model}
   framework:
     type: ${framework_type}
-## DONT REMOVE
 logger:
-## DONT REMOVE
 api:
   encryption:
     key: "${encryption_key}"
-## DONT REMOVE
 ota:
   password: "${ota_pass}"
 wifi:
@@ -81,6 +78,15 @@ binary_sensor:
                 service: media_player.volume_mute
                 data_template:                 
                   is_volume_muted: "false"
+                  entity_id: ${media_player}    
+    - timing: 
+        - ON for at least 50ms  
+        - OFF for at least 50ms     
+        - ON for at least 50ms
+      then:     
+            - homeassistant.service:
+                service: media_player.media_next_track
+                data_template:                 
                   entity_id: ${media_player}     
 ##SCREEN ON / OFF
 switch:
