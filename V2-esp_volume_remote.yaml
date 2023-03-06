@@ -1,0 +1,528 @@
+## SET UP
+substitutions:
+  #GENRAL
+  esphome_node_name: "esp32-feather-s2"
+  board_model: "lolin_s2_mini"
+  framework_type: "arduino"
+  ap_pass: ""
+  esp_name: "ESP Volume Box"
+  time_id: "esptime"
+  #KEYS
+  ota_pass: "9924eb48fd975e552539319184eaa9e7"
+  encryption_key: "pzbulASkvRmJYZ5APG/0Y+ykKjnoIF96d8OXPGq8pnQ="
+  #DISPLAY
+  display_platform: "ssd1351_spi"
+  display_model: "SSD1351 128x128"
+  spi_clk: "10"
+  spi_mosi: "11"
+  pin_reset: "14"
+  pin_cs: "12"
+  pin_dc: "13"
+  #ROTARY ENCODER
+  rotaty_clk: "7"
+  rotaty_a: "8"
+  rotaty_b: "9" 
+  num_leds: "12"
+  media_player2: "media_player.appletv_4k"
+  media_player: "media_player.kodi_appletv"
+  rotary_id: "knob"
+  rotary_click_id: "click"
+  display_id: "oled"
+#######################################################
+#                   end user inputs                   #
+#######################################################
+  
+esphome:
+  name: ${esphome_node_name}
+## NAME YOUR BOARD TYPE
+esp32:
+  board: ${board_model}
+  framework:
+    type: ${framework_type}
+## DONT REMOVE
+logger:
+## DONT REMOVE
+api:
+  encryption:
+    key: "${encryption_key}"
+## DONT REMOVE
+ota:
+  password: "${ota_pass}"
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${esp_name} Hotspot"
+    password: "${ap_pass}"
+## ROTATY CLICK
+binary_sensor:
+  - platform: gpio
+    name: '${esp_name} Click'
+    id: ${rotary_click_id}
+    pin: ${rotaty_clk}
+    internal: true
+    filters:      
+      - delayed_off: 50ms
+      - invert: 
+    on_multi_click:
+    - timing: 
+        - ON for at least .3s       
+      then:     
+            - switch.turn_on: switch1
+            - homeassistant.service:
+                service: media_player.volume_mute
+                data_template:                 
+                  is_volume_muted: "true"
+                  entity_id: ${media_player} 
+    - timing: 
+        - ON for at least 1s       
+      then:     
+            - homeassistant.service:
+                service: media_player.volume_mute
+                data_template:                 
+                  is_volume_muted: "false"
+                  entity_id: ${media_player}     
+##SCREEN ON / OFF
+switch:
+  - platform: template
+    name: "${esp_name} Display"
+    optimistic: true
+    restore_state: ON
+    id: switch1
+    turn_on_action:
+      - lambda: id(${display_id}).turn_on();
+      - light.turn_on: leds
+    turn_off_action:
+      - lambda: id(${display_id}).turn_off();
+      - light.turn_off: leds
+script:
+    id: delay_rot_enc
+    mode: restart
+    then:
+      - delay: 4s
+      - light.turn_off: leds
+## ROTARY ENCODER KNOB
+sensor:
+  - platform: rotary_encoder
+    name: "${esp_name} Rotary Encoder"
+    id: rot_enc1
+    pin_a: ${rotaty_a}
+    pin_b: ${rotaty_b}
+    resolution: 1
+    restore_mode: ALWAYS_ZERO
+    publish_initial_value: true
+    min_value: 0
+    max_value: 100
+    filters:
+    - debounce: 0.33s    
+    on_clockwise:
+          then:
+            - delay: .33s        
+            - homeassistant.service:
+                service: media_player.volume_set
+                data_template:                 
+                  volume_level: !lambda "return id(rot_enc1).state / 100;"
+                  entity_id: ${media_player}                  
+    on_anticlockwise:
+          then:     
+            - delay: .33s    
+            - homeassistant.service:
+                service: media_player.volume_set
+                data_template:                 
+                  volume_level: !lambda "return id(rot_enc1).state / 100;"
+                  entity_id: ${media_player}     
+    internal: true    
+############
+    on_value:
+      then:
+        - lambda: |-
+            if ( !id(effect_rotate_running)){
+              auto call = id(leds).turn_on();
+              call.set_effect("Random Colors");
+              call.perform();
+            }
+        - script.execute: delay_rot_enc
+###########
+############
+
+###################### 
+#    on_value_range:
+#      - below: 005
+#        then:
+#          -  light.turn_on:
+#              id: leds
+#              effect: strobe Red
+#              brightness: 50%
+#
+#      - above: 006
+#        below: 9
+#        then:
+#          -  light.turn_on:
+#              id: leds
+#              brightness: 25%
+#              effect: Random Colors
+#              
+##              red: 50%
+##              green: 0%
+##              blue: 50%
+#      - above: 010
+#        below: 19
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              effect: Random Colors
+#              brightness: 28%
+##              red: 75%
+##              green: 25%
+##              blue: 25%            
+#      - above: 020 
+#        below: 29
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              brightness: 30%
+#              effect: Random Colors
+##              red: 50%
+##              green: 50%
+##              blue: 0%
+#      - above: 030
+#        below: 39
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              brightness: 35%
+#              effect: Random Colors
+##              red: 25%
+##              green: 75%
+##              blue: 0%       
+#      - above: 040
+#        below: 49
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              brightness: 45%
+#              effect: Random Colors
+# #             red: 0%
+# #             green: 100%
+# #             blue: 0%     
+#      - above: 050
+#        below: 59
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              brightness: 50%
+#              effect: Random Colors
+#  #            red: 0%
+#  #            green: 100%
+#  #            blue: 25%
+#      - above: 060
+#        below: 69
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              brightness: 55%
+#              effect: Random Colors
+##              red: 0%
+##              green: 100%
+##              blue: 50%          
+#      - above: 070
+#        below: 79
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              brightness: 58%
+#              effect: Random Colors
+# #             red: 0%
+# #             green: 100%
+# #             blue: 75%
+#      - above: 080
+#        below: 89
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              effect: Random Colors
+#              brightness: 60%
+#  #            red: 0%
+#  #            green: 100%
+#  #            blue: 100%
+#      - above: 090
+#        below: 94.9
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              effect: Random Colors
+#              brightness: 75%            
+#      - above: 095
+#        below: 100
+#        then:
+#          - light.turn_on:
+#              id: leds
+#              effect: Strobe Red
+#              brightness: 35%
+  - platform: homeassistant
+    id: media_vol
+    entity_id: ${media_player}
+    attribute: volume_level
+    internal: true
+    on_value:
+      - delay: 5s
+      - sensor.rotary_encoder.set_value:
+         id: rot_enc1
+         value: !lambda "return id(media_vol).state * 100;"
+
+text_sensor:
+  - platform: homeassistant
+    entity_id: ${media_player2}
+    id: nowplay
+    attribute: media_title
+  - platform: homeassistant
+    entity_id: ${media_player2}
+    id: artist
+    attribute: media_artist
+  - platform: homeassistant
+    entity_id: ${media_player2}
+    id: app
+    attribute: app_name
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
+    pin: GPIO17
+    num_leds: ${num_leds}
+    id: leds
+    name: "${esp_name} LED Ring"
+    default_transition_length: 20ms
+    restore_mode: ALWAYS_OFF
+    on_turn_off:
+      - lambda: |-
+          id(effect_rotate_running) = false;
+    effects:
+      - addressable_lambda:
+          name: "Rotate"
+          update_interval: 50ms
+          lambda: |-
+            static boolean is_running = false;
+            static uint32_t cnt = 0;
+            static Color ring_colors[${num_leds}];
+            static boolean rotate_right = false;
+            static boolean rotate_on = false;
+            static int rot_enc1_old = 0;
+            
+            if ( rot_enc1_old < int(id(rot_enc1).state) ){
+              rotate_right = true;
+              rotate_on = true;
+            }
+            else if ( rot_enc1_old > int(id(rot_enc1).state) ){
+              rotate_right = false;
+              rotate_on = true;
+            }
+            else {
+              rotate_on = false;
+            }
+            rot_enc1_old = int(id(rot_enc1).state);
+            
+            if ( !id(effect_rotate_running)){
+              id(effect_rotate_running) = true;
+              it.all() = Color::BLACK;
+              it[0] = Color(120, 0, 0, 0);
+              it[1] = Color(0, 120, 0, 0);
+              it[2] = Color(0, 0, 120, 0);
+              return;
+            }
+
+            if ( !rotate_on ){
+              return;
+            }
+
+            Color new_color;
+
+            if (rotate_right){
+              new_color = it[0].get();
+              for (int i = 0; i < it.size() - 1; i++) {
+                it[i] = it[i + 1].get();
+              }
+              it[it.size() - 1] = new_color;
+            }
+            else {
+              new_color = it[it.size() - 1].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = new_color;
+            }
+
+#    effects:
+      - addressable_scan:
+      - addressable_scan:
+          name: Scanner
+          move_interval: 80ms
+          scan_width: 1
+      - addressable_color_wipe:
+      - addressable_color_wipe:
+          name: Wipe
+      #    random: true
+          colors:
+            - red: 80%
+              green: 20%
+              blue: 100%
+              num_leds: 1
+            - red: 100%
+              green: 30%
+              blue: 80%
+              num_leds: 1
+            - red: 10%
+              green: 100%
+              blue: 30%
+              num_leds: 1
+            - red: 60%
+              green: 100%
+              blue: 70%
+              num_leds: 1
+            - red: 100%
+              green: 0%
+              blue: 60%
+              num_leds: 1
+            - red: 80%
+              green: 20%
+              blue: 100%
+              num_leds: 1              
+          add_led_interval: 500ms
+          reverse: false    
+      - pulse:
+      - pulse:
+          name: "Fast Pulse"         
+          transition_length: 2s
+          update_interval: 1s
+      - pulse:
+          name: "Slow Pulse"
+          transition_length: 3s      # defaults to 1s
+          update_interval: 5s
+      - random:
+      - random:
+          name: Random Colors
+          transition_length: .1s
+          update_interval: 1s
+      - strobe:
+      - strobe:
+          name: Strobe Blue
+          colors:
+            - state: true
+              brightness: 100%
+              red: 0%
+              green: 0%
+              blue: 100%
+              duration: 150ms
+            - state: false
+              duration: 150ms            
+      - strobe:
+          name: Strobe Green
+          colors:
+            - state: true
+              brightness: 100%
+              red: 0%
+              green: 100%
+              blue: 0%
+              duration: 150ms
+            - state: false
+              duration: 150ms            
+      - strobe:
+          name: Strobe Red
+          colors:
+            - state: true
+              brightness: 50%
+              red: 100%
+              green: 0%
+              blue: 0%
+              duration: 150ms
+            - state: false
+              duration: 150ms
+globals:
+  - id: effect_rotate_running
+    type: boolean
+    initial_value: "false"            
+  
+font:
+  - file: 'fonts/arial.ttf'
+    id: font1
+    size: 18
+  - file: "fonts/mdi.ttf"
+    id: mdi2
+    size: 27
+    glyphs: [
+       "\U000F075E", #Volume -
+      "\U000F075D", #vol +
+      ]
+  - file: 'fonts/arial.ttf'
+    id: font0
+    size: 11
+    glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+  - file: 'fonts/arial.ttf'
+    id: font00
+    size: 9
+    glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+  - file: 'BebasNeue-Regular.ttf'
+    id: font2
+    size: 30
+    glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+  - file: 'fonts/arial.ttf'
+    id: font4
+    size: 60
+    glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+  - file: 'fonts/arial.ttf'
+    id: font3
+    size: 20
+    glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+color:
+  - id: red
+    red: 100%
+    green: 0%
+    blue: 0%
+    white: 0%
+  - id: blue
+    red: 0%
+    green: 0%
+    blue: 100%
+    white: 0%
+  - id: blue_green
+    red: 0%
+    green: 50%
+    blue: 50%
+    white: 5%
+  - id: green
+    red: 0%
+    green: 100%
+    blue: 0%
+    white: 0%
+  - id: violet
+    red: 50%
+    green: 0%
+    blue: 50%
+    white: 5%
+##  128*128
+spi:
+  clk_pin: ${spi_clk}
+  mosi_pin: ${spi_mosi}
+display:
+  - platform: ${display_platform}
+    model: "${display_model}"
+    id: ${display_id}
+    reset_pin: ${pin_reset}
+    cs_pin: ${pin_cs}
+    dc_pin: ${pin_dc}
+#    update_interval: 0.1s 
+    brightness: 95%
+    lambda: |-
+      it.rectangle(0, 0, 128, 128, id(violet));
+      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(green));
+      it.rectangle(13, 2, 102, 20, id(blue));
+      if (id(app).has_state()) {
+      it.printf(64, 40, id(font3), id(green), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
+      } else {
+      it.print(64, 40, id(font3), TextAlign::BASELINE_CENTER, "Volume");
+      }
+      it.print(2, 25, id(mdi2), id(red), "\U000F075E");
+      it.print(100, 25, id(mdi2), id(green), "\U000F075D");
+      it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
+      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
+      it.printf(64, 123, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
+      it.line(0, 110, 128, 110, id(violet));
