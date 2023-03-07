@@ -24,25 +24,37 @@ substitutions:
   rotaty_b: "9" 
   num_leds: "12"
   media_player2: "media_player.appletv_4k"
-  # media player 2 is for artist title and app name, other is only volume. you can set both to the same entity
   media_player: "media_player.kodi_appletv"
-  rotary_id: "knob"
-  rotary_click_id: "click"
+  
   display_id: "oled"
 #######################################################
 #                   end user inputs                   #
 #######################################################
-  
 esphome:
   name: ${esphome_node_name}
+  on_boot:
+    priority: -100
+    then:
+      - light.turn_on:
+          id: leds  
+          brightness: 33%
+          red: 0%
+          green: 0%
+          blue: 70%
+#      - delay: 5000ms
+#      - script.execute: rot_value_set
+## NAME YOUR BOARD TYPE
 esp32:
   board: ${board_model}
   framework:
     type: ${framework_type}
+## DONT REMOVE
 logger:
+## DONT REMOVE
 api:
   encryption:
     key: "${encryption_key}"
+## DONT REMOVE
 ota:
   password: "${ota_pass}"
 wifi:
@@ -51,6 +63,47 @@ wifi:
   ap:
     ssid: "${esp_name} Hotspot"
     password: "${ap_pass}"
+## ROTATY CLICK
+binary_sensor:
+  - platform: gpio
+    name: '${esp_name} Click'
+    id: push_it
+    pin: ${rotaty_clk}
+    internal: true
+    filters:      
+      - delayed_off: 50ms
+      - invert: 
+    on_multi_click:
+    - timing: 
+        - ON for at most 500ms     
+      then: 
+        - homeassistant.service:
+            service: media_player.volume_mute
+            data_template:                 
+              is_volume_muted: "true"
+              entity_id: ${media_player} 
+        - light.turn_on: 
+            id: leds
+            brightness: 33%
+            red: 100%
+            green: 0%
+            blue: 0%
+    - timing: 
+        - ON for at least 1s       
+      then:     
+            - homeassistant.service:
+                service: media_player.volume_mute
+                data_template:                 
+                  is_volume_muted: "false"
+                  entity_id: ${media_player}     
+    - timing:  
+        - OFF for at most 500ms     
+        - ON for at most 500ms
+      then:     
+            - homeassistant.service:
+                service: media_player.media_next_track
+                data_template:                 
+                  entity_id: ${media_player}  
 ##SCREEN ON / OFF
 switch:
   - platform: template
@@ -59,55 +112,58 @@ switch:
     restore_state: ON
     id: switch1
     turn_on_action:
-      - lambda: id(${display_id}).turn_on();
-      - light.turn_on: leds
+      - lambda: id(screen).turn_on();
+      - light.turn_on: 
+          id: leds
+          brightness: 40%
     turn_off_action:
-      - lambda: id(${display_id}).turn_off();
+      - lambda: id(screen).turn_off();
       - light.turn_off: leds
 script:
-    id: delay_rot_enc
+  - id: leds_down
+    mode: queued
+    then:
+      - light.turn_on:
+          id: leds
+          brightness: 0%
+      - light.addressable_set:
+          id: leds
+          range_from: !lambda "return id(rot_enc1).state / 100 * 12;"
+          range_to: 12
+          color_brightness: 35%
+          red: 100%
+          green: 10%
+          blue: 25%     
+      - light.turn_off: leds
+  - id: leds_up
+    mode: queued
+    then:
+        - light.turn_on: 
+            id: leds
+            brightness: 0%
+        - light.addressable_set:
+            id: leds
+            range_from: 0
+            range_to: !lambda "return id(rot_enc1).state / 100 * 12;"
+            color_brightness: 35%
+            red: 10%
+            green: 100%
+            blue: 15%   
+  - id: set_vol
+    mode: queued
+    then:
+      - homeassistant.service:
+            service: media_player.volume_set
+            data_template:                 
+              volume_level: !lambda "return id(rot_enc1).state / 100;"
+              entity_id: ${media_player}   
+  - id: rot_value_set
     mode: restart
     then:
-      - delay: 4s
-      - light.turn_off: leds
-## ROTATY CLICK
-binary_sensor:
-  - platform: gpio
-    name: '${esp_name} Click'
-    id: ${rotary_click_id}
-    pin: ${rotaty_clk}
-    internal: true
-    filters:      
-      - delayed_off: 50ms
-      - invert: 
-    on_multi_click:
-    - timing: 
-        - ON for at least .3s       
-      then:     
-            - switch.turn_on: switch1
-            - homeassistant.service:
-                service: media_player.volume_mute
-                data_template:                 
-                  is_volume_muted: "true"
-                  entity_id: ${media_player} 
-    - timing: 
-        - ON for at least 1s       
-      then:     
-            - homeassistant.service:
-                service: media_player.volume_mute
-                data_template:                 
-                  is_volume_muted: "false"
-                  entity_id: ${media_player}    
-    - timing: 
-        - ON for at least 50ms  
-        - OFF for at least 50ms     
-        - ON for at least 50ms
-      then:     
-            - homeassistant.service:
-                service: media_player.media_next_track
-                data_template:                 
-                  entity_id: ${media_player}     
-
+      - delay: 3000ms
+      - sensor.rotary_encoder.set_value:
+         id: rot_enc1
+         value: !lambda "return id(media_vol).state * 100;"
 ## ROTARY ENCODER KNOB
 sensor:
   - platform: rotary_encoder
@@ -116,167 +172,27 @@ sensor:
     pin_a: ${rotaty_a}
     pin_b: ${rotaty_b}
     resolution: 1
-    restore_mode: ALWAYS_ZERO
+    restore_mode: RESTORE_DEFAULT_ZERO
     publish_initial_value: true
     min_value: 0
     max_value: 100
-    filters:
-    - debounce: 0.33s    
+    internal: true
     on_clockwise:
-          then:
-            - delay: .33s        
-            - homeassistant.service:
-                service: media_player.volume_set
-                data_template:                 
-                  volume_level: !lambda "return id(rot_enc1).state / 100;"
-                  entity_id: ${media_player}                  
-    on_anticlockwise:
-          then:     
-            - delay: .33s    
-            - homeassistant.service:
-                service: media_player.volume_set
-                data_template:                 
-                  volume_level: !lambda "return id(rot_enc1).state / 100;"
-                  entity_id: ${media_player}     
-    internal: true    
-############
-    on_value:
       then:
-        - lambda: |-
-            if ( !id(effect_rotate_running)){
-              auto call = id(leds).turn_on();
-              call.set_effect("Random Colors");
-              call.perform();
-            }
-        - script.execute: delay_rot_enc
-###########
-############
-
-###################### 
-#    on_value_range:
-#      - below: 005
-#        then:
-#          -  light.turn_on:
-#              id: leds
-#              effect: strobe Red
-#              brightness: 50%
-#
-#      - above: 006
-#        below: 9
-#        then:
-#          -  light.turn_on:
-#              id: leds
-#              brightness: 25%
-#              effect: Random Colors
-#              
-##              red: 50%
-##              green: 0%
-##              blue: 50%
-#      - above: 010
-#        below: 19
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              effect: Random Colors
-#              brightness: 28%
-##              red: 75%
-##              green: 25%
-##              blue: 25%            
-#      - above: 020 
-#        below: 29
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              brightness: 30%
-#              effect: Random Colors
-##              red: 50%
-##              green: 50%
-##              blue: 0%
-#      - above: 030
-#        below: 39
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              brightness: 35%
-#              effect: Random Colors
-##              red: 25%
-##              green: 75%
-##              blue: 0%       
-#      - above: 040
-#        below: 49
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              brightness: 45%
-#              effect: Random Colors
-# #             red: 0%
-# #             green: 100%
-# #             blue: 0%     
-#      - above: 050
-#        below: 59
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              brightness: 50%
-#              effect: Random Colors
-#  #            red: 0%
-#  #            green: 100%
-#  #            blue: 25%
-#      - above: 060
-#        below: 69
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              brightness: 55%
-#              effect: Random Colors
-##              red: 0%
-##              green: 100%
-##              blue: 50%          
-#      - above: 070
-#        below: 79
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              brightness: 58%
-#              effect: Random Colors
-# #             red: 0%
-# #             green: 100%
-# #             blue: 75%
-#      - above: 080
-#        below: 89
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              effect: Random Colors
-#              brightness: 60%
-#  #            red: 0%
-#  #            green: 100%
-#  #            blue: 100%
-#      - above: 090
-#        below: 94.9
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              effect: Random Colors
-#              brightness: 75%            
-#      - above: 095
-#        below: 100
-#        then:
-#          - light.turn_on:
-#              id: leds
-#              effect: Strobe Red
-#              brightness: 35%
+        - script.execute: leds_up
+        - script.execute: set_vol
+        - script.execute: rot_value_set
+       
+    on_anticlockwise:
+      then:
+        - script.execute: leds_down
+        - script.execute: set_vol
+        - script.execute: rot_value_set
   - platform: homeassistant
     id: media_vol
     entity_id: ${media_player}
     attribute: volume_level
     internal: true
-    on_value:
-      - delay: 5s
-      - sensor.rotary_encoder.set_value:
-         id: rot_enc1
-         value: !lambda "return id(media_vol).state * 100;"
-
 text_sensor:
   - platform: homeassistant
     entity_id: ${media_player2}
@@ -290,6 +206,11 @@ text_sensor:
     entity_id: ${media_player2}
     id: app
     attribute: app_name
+####################
+##                ##
+##      Light     ##
+##                ##
+####################
 light:
   - platform: neopixelbus
     type: GRB
@@ -298,101 +219,96 @@ light:
     num_leds: ${num_leds}
     id: leds
     name: "${esp_name} LED Ring"
-    default_transition_length: 20ms
+    default_transition_length: 1000ms
     restore_mode: ALWAYS_OFF
     on_turn_off:
       - lambda: |-
           id(effect_rotate_running) = false;
+  
     effects:
-      - addressable_lambda:
-          name: "Rotate"
-          update_interval: 50ms
-          lambda: |-
-            static boolean is_running = false;
-            static uint32_t cnt = 0;
-            static Color ring_colors[${num_leds}];
-            static boolean rotate_right = false;
-            static boolean rotate_on = false;
-            static int rot_enc1_old = 0;
-            
-            if ( rot_enc1_old < int(id(rot_enc1).state) ){
-              rotate_right = true;
-              rotate_on = true;
-            }
-            else if ( rot_enc1_old > int(id(rot_enc1).state) ){
-              rotate_right = false;
-              rotate_on = true;
-            }
-            else {
-              rotate_on = false;
-            }
-            rot_enc1_old = int(id(rot_enc1).state);
-            
-            if ( !id(effect_rotate_running)){
-              id(effect_rotate_running) = true;
-              it.all() = Color::BLACK;
-              it[0] = Color(120, 0, 0, 0);
-              it[1] = Color(0, 120, 0, 0);
-              it[2] = Color(0, 0, 120, 0);
-              return;
-            }
-
-            if ( !rotate_on ){
-              return;
-            }
-
-            Color new_color;
-
-            if (rotate_right){
-              new_color = it[0].get();
-              for (int i = 0; i < it.size() - 1; i++) {
-                it[i] = it[i + 1].get();
-              }
-              it[it.size() - 1] = new_color;
-            }
-            else {
-              new_color = it[it.size() - 1].get();
-              for (int i = it.size() - 1; i > 0; i--) {
-                it[i] = it[i - 1].get();
-              }
-              it[0] = new_color;
-            }
-
-#    effects:
+#
+#      - addressable_lambda:
+#          name: "Rotate"
+##          update_interval: 50ms
+##          
+##          lambda: |-
+##            it.all() = ESPColor::BLACK;
+##            
+##            int volume = id(media_vol).state * 100;
+##            
+##            // FROM ARDUINO MAP FUNCTION: return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+##            int outRange = (volume - 1) * (it.size() - 1) / (100 - 1) + 1; 
+##            // INVERT IT TO GO CLOCKWISE
+##            outRange = it.size() - outRange;
+##            int red = 0;
+##            int blue = 0;
+##            int green = 0;
+##            for (int i = it.size() - 1; i > outRange - 1; i--) {
+##              red = (15 - i) * 8;
+##              blue = (15 - i) * 8;
+##              green = 230;
+##              
+##              it[i] = ESPColor(red, green, blue);
+##            }
+#          update_interval: 50ms
+#          lambda: |-
+#            static boolean is_running = false;
+#            static uint32_t cnt = 0;
+#            static Color ring_colors[${num_leds}];
+#            static boolean rotate_right = false;
+#            static boolean rotate_on = false;
+#            static int rot_enc1_old = 0;
+#            
+#            if ( rot_enc1_old < int(id(rot_enc1).state) ){
+#              rotate_right = true;
+#              rotate_on = true;
+#            }
+#            else if ( rot_enc1_old > int(id(rot_enc1).state) ){
+#              rotate_right = false;
+#              rotate_on = true;
+#            }
+#            else {
+#              rotate_on = false;
+#            }
+#            rot_enc1_old = int(id(rot_enc1).state);
+#            
+#            if ( !id(effect_rotate_running)){
+#              id(effect_rotate_running) = true;
+#              it.all() = Color::BLACK;
+#              it[0] = Color(120, 50, 100, 0);
+#              it[1] = Color(120, 50, 100, 0);
+#              it[2] = Color(120, 50, 100, 0);
+#              return;
+#            }
+#
+#            if ( !rotate_on ){
+#              return;
+#            }
+#
+#            Color new_color;
+#
+#            if (rotate_right){
+#              new_color = it[0].get();
+#              for (int i = 0; i < it.size() + 1; i++) {
+#                it[i] = it[i - 1].get();
+#              }
+#              it[it.size() + 1] = new_color;
+#            }
+#            else {
+#              new_color = it[it.size() + 1].get();
+#              for (int i = it.size() - 1; i > 0; i--) {
+#                it[i] = it[i + 1].get();
+#              }
+#              it[0] = new_color;
+#            }
       - addressable_scan:
       - addressable_scan:
           name: Scanner
-          move_interval: 80ms
+          move_interval: 2.5s
           scan_width: 1
       - addressable_color_wipe:
       - addressable_color_wipe:
-          name: Wipe
-      #    random: true
-          colors:
-            - red: 80%
-              green: 20%
-              blue: 100%
-              num_leds: 1
-            - red: 100%
-              green: 30%
-              blue: 80%
-              num_leds: 1
-            - red: 10%
-              green: 100%
-              blue: 30%
-              num_leds: 1
-            - red: 60%
-              green: 100%
-              blue: 70%
-              num_leds: 1
-            - red: 100%
-              green: 0%
-              blue: 60%
-              num_leds: 1
-            - red: 80%
-              green: 20%
-              blue: 100%
-              num_leds: 1              
+          name: Wipe           
           add_led_interval: 500ms
           reverse: false    
       - pulse:
@@ -407,47 +323,36 @@ light:
       - random:
       - random:
           name: Random Colors
-          transition_length: .1s
+          transition_length: .5s
           update_interval: 1s
+          
       - strobe:
       - strobe:
-          name: Strobe Blue
+          name: Police Strobe
           colors:
+            - state: true
+              brightness: 100%
+              red: 100%
+              green: 0%
+              blue: 0%
+              duration: 50ms
+            - state: false
+              duration: 25ms
             - state: true
               brightness: 100%
               red: 0%
               green: 0%
               blue: 100%
-              duration: 150ms
+              duration: 50ms
             - state: false
-              duration: 150ms            
-      - strobe:
-          name: Strobe Green
-          colors:
-            - state: true
-              brightness: 100%
-              red: 0%
-              green: 100%
-              blue: 0%
-              duration: 150ms
-            - state: false
-              duration: 150ms            
-      - strobe:
-          name: Strobe Red
-          colors:
-            - state: true
-              brightness: 50%
-              red: 100%
-              green: 0%
-              blue: 0%
-              duration: 150ms
-            - state: false
-              duration: 150ms
+              duration: 25ms
 globals:
   - id: effect_rotate_running
     type: boolean
-    initial_value: "false"            
-  
+    initial_value: "false"        
+
+       
+
 font:
   - file: 'fonts/arial.ttf'
     id: font1
@@ -512,11 +417,11 @@ spi:
 display:
   - platform: ${display_platform}
     model: "${display_model}"
-    id: ${display_id}
+    id: screen
     reset_pin: ${pin_reset}
     cs_pin: ${pin_cs}
     dc_pin: ${pin_dc}
-#    update_interval: 0.1s 
+    update_interval: 0.1s 
     brightness: 95%
     lambda: |-
       it.rectangle(0, 0, 128, 128, id(violet));
