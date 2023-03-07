@@ -1,7 +1,10 @@
 # espHome_media_volume_remote
 Control Media entity volume with a display showing the volume level, app, artist and title on screen. Added neopixel ring for color feedback on Volume level
-Click to mute
-Hold for 1s to un-mute
+Click once to mute
+Hold for 2s to un-mute
+Dbl click to skip track or next episode 
+Hold for 5s to toggle display and leds 
+
 Clockwise = Volume +
 Anti-Clockwise = Volume - 
 
@@ -13,7 +16,7 @@ All text is on screen dynamic and changes based on what app, artist and title. (
 
 Parts:
 
-5V Individual Addressable RGB LED NeoPixel Ring For ArduinoWS2812 ( aliexpress, $0.40 ea + shipping )
+5V Individual Addressable RGB LED NeoPixel Ring For ArduinoWS2812- 12 LED ( aliexpress, $0.77 ea + shipping )
 https://www.aliexpress.us/item/3256804900290133.html?spm=a2g0o.order_list.order_list_main.10.54f61802sL1qIr
 
 rotary encoder with push/click (aliexpress $0.56 + shipping )
@@ -26,7 +29,9 @@ https://www.aliexpress.us/item/3256805048425363.html?spm=a2g0o.productlist.main.
 https://www.amazon.com/gp/product/B07D9NVJPZ/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
 
 3D printed box
-
-female to female jumper wires to make it all so much easier
-
-you will also need to make 2 'Y' jumpers to feed an extra 3.3v and an extra ground. (all female ends)
+STL provided
+ 
+You will also want (or you're gonna be soldering!)
+Female to female jumper wires
+AND
+make 2 'Y' jumpers to feed an extra 3.3v and an extra ground to the componets. (all female ends)
