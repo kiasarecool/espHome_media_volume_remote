@@ -104,10 +104,16 @@ binary_sensor:
                 service: media_player.media_next_track
                 data_template:                 
                   entity_id: ${media_player}  
+    - timing: 
+        - ON for at least 5s
+      then:
+        - switch.toggle: switch1
+
 ##SCREEN ON / OFF
 switch:
   - platform: template
     name: "${esp_name} Display"
+    
     optimistic: true
     restore_state: ON
     id: switch1
