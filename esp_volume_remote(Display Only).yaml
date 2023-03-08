@@ -146,7 +146,7 @@ sensor:
     id: media_vol
     entity_id: ${media_player}
     attribute: volume_level
-    internal: true
+
 text_sensor:
   - platform: homeassistant
     entity_id: ${media_player2}
@@ -169,7 +169,7 @@ font:
     id: mdi2
     size: 27
     glyphs: [
-       "\U000F075E", #Volume -
+      "\U000F075E", #Volume -
       "\U000F075D", #vol +
       ]
   - file: 'fonts/arial.ttf'
@@ -218,6 +218,9 @@ color:
     green: 0%
     blue: 50%
     white: 5%
+time:
+  - platform: homeassistant
+    id: esptime
 ##  128*128
 spi:
   clk_pin: ${spi_clk}
@@ -232,17 +235,18 @@ display:
     update_interval: 0.1s 
     brightness: 95%
     lambda: |-
-      it.rectangle(0, 0, 128, 128, id(violet));
-      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(green));
+      it.strftime(64, 55, id(font0), id(green), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
+      it.rectangle(0, 0, 128, 128, id(red));
+      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(blue));
       it.rectangle(13, 2, 102, 20, id(blue));
       if (id(app).has_state()) {
-      it.printf(64, 40, id(font3), id(green), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
+      it.print(64, 40, id(font3), id(violet), TextAlign::BASELINE_CENTER, "Volume");
       } else {
-      it.print(64, 40, id(font3), TextAlign::BASELINE_CENTER, "Volume");
+      it.printf(64, 40, id(font3), id(blue), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
       }
-      it.print(2, 25, id(mdi2), id(red), "\U000F075E");
-      it.print(100, 25, id(mdi2), id(green), "\U000F075D");
-      it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
-      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
-      it.printf(64, 123, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
-      it.line(0, 110, 128, 110, id(violet));
+      it.print(2, 23, id(mdi2), id(red), "\U000F075E");
+      it.print(100, 23, id(mdi2), id(green), "\U000F075D");
+      it.printf(64, 70, id(font0), id(blue), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
+      it.printf(64, 99, id(font2), id(violet), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
+      it.printf(64, 123, id(font00), id(blue), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
+      it.line(0, 110, 128, 110, id(red));
