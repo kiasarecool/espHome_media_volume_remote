@@ -1,18 +1,16 @@
 ## SET UP
 substitutions:
-  #BOARD
+  #GENRAL
   esphome_node_name: "esp32-feather-s2"
   board_model: "lolin_s2_mini"
   framework_type: "arduino"
-  # leave ap_pass blank for no pass, who remembers all their node hotspot passwords anyway?
   ap_pass: ""
   esp_name: "ESP Volume Box"
-  
-  # YOUR KEYS
-  ota_pass: "Don't forget me"
-  encryption_key: "please Don't forget me either "
-
-  #DISPLAY INFO
+  time_id: "esptime"
+  #KEYS
+  ota_pass: "9924eb48fd975e552539319184eaa9e7"
+  encryption_key: "pzbulASkvRmJYZ5APG/0Y+ykKjnoIF96d8OXPGq8pnQ="
+  #DISPLAY
   display_platform: "ssd1351_spi"
   display_model: "SSD1351 128x128"
   spi_clk: "10"
@@ -20,25 +18,20 @@ substitutions:
   pin_reset: "14"
   pin_cs: "12"
   pin_dc: "13"
-  #ROTARY ENCODER PINS
+  #ROTARY ENCODER
   rotaty_clk: "7"
   rotaty_a: "8"
   rotaty_b: "9" 
-#____________________________________________
-## entity for Volume control/level
-  media_player: "media_player.kodi_appletv"
-#____________________________________________
-
-#____________________________________________
-##entity for text/titles (app name, artist, title)
+  num_leds: "12"
+  # Title Track Artist Channel etc... Text entity media entity
   media_player2: "media_player.appletv_4k"
-#____________________________________________
-#change wifi info below if you do not use !secret wifi_
 
+  #Volume Entity (can be same as media_player2)
+  media_player: "media_player.bedroom_smart_tv"
+  
 #######################################################
 #                   end user inputs                   #
 #######################################################
-  
 esphome:
   name: ${esphome_node_name}
 ## NAME YOUR BOARD TYPE
@@ -65,7 +58,7 @@ wifi:
 binary_sensor:
   - platform: gpio
     name: '${esp_name} Click'
-    id: bam
+    id: push_it
     pin: ${rotaty_clk}
     internal: true
     filters:      
@@ -73,14 +66,13 @@ binary_sensor:
       - invert: 
     on_multi_click:
     - timing: 
-        - ON for at least .3s       
-      then:     
-            - switch.turn_on: switch1
-            - homeassistant.service:
-                service: media_player.volume_mute
-                data_template:                 
-                  is_volume_muted: "true"
-                  entity_id: ${media_player} 
+        - ON for at most 500ms     
+      then: 
+        - homeassistant.service:
+            service: media_player.volume_mute
+            data_template:                 
+              is_volume_muted: "true"
+              entity_id: ${media_player} 
     - timing: 
         - ON for at least 1s       
       then:     
@@ -89,6 +81,18 @@ binary_sensor:
                 data_template:                 
                   is_volume_muted: "false"
                   entity_id: ${media_player}     
+    - timing:  
+        - OFF for at most 500ms     
+        - ON for at most 500ms
+      then:     
+            - homeassistant.service:
+                service: media_player.media_next_track
+                data_template:                 
+                  entity_id: ${media_player}  
+    - timing: 
+        - ON for at least 5s
+      then:
+        - switch.toggle: switch1
 ##SCREEN ON / OFF
 switch:
   - platform: template
@@ -97,52 +101,53 @@ switch:
     restore_state: ON
     id: switch1
     turn_on_action:
-      - lambda: id(magic_square).turn_on();
+      - lambda: id(screen).turn_on();
     turn_off_action:
-      - lambda: id(magic_square).turn_off();
+      - lambda: id(screen).turn_off();
+
+script:
+  - id: set_vol
+    mode: queued
+    then:
+      - homeassistant.service:
+            service: media_player.volume_set
+            data_template:                 
+              volume_level: !lambda "return id(rot_enc1).state / 100;"
+              entity_id: ${media_player}   
+  - id: rot_value_set
+    mode: restart
+    then:
+      - delay: 3000ms
+      - sensor.rotary_encoder.set_value:
+         id: rot_enc1
+         value: !lambda "return id(media_vol).state * 100;"
 ## ROTARY ENCODER KNOB
 sensor:
   - platform: rotary_encoder
     name: "${esp_name} Rotary Encoder"
-    id: spin_it
+    id: rot_enc1
     pin_a: ${rotaty_a}
     pin_b: ${rotaty_b}
     resolution: 1
-    restore_mode: ALWAYS_ZERO
+    restore_mode: RESTORE_DEFAULT_ZERO
     publish_initial_value: true
     min_value: 0
     max_value: 100
-    filters:
-    - debounce: 0.33s    
+    internal: true
     on_clockwise:
-          then:
-            - delay: .33s        
-            - homeassistant.service:
-                service: media_player.volume_set
-                data_template:                 
-                  volume_level: !lambda "return id(spin_it).state / 100;"
-                  entity_id: ${media_player}                  
+      then:
+        - script.execute: set_vol
+        - script.execute: rot_value_set
     on_anticlockwise:
-          then:     
-            - delay: .33s    
-            - homeassistant.service:
-                service: media_player.volume_set
-                data_template:                 
-                  volume_level: !lambda "return id(spin_it).state / 100;"
-                  entity_id: ${media_player}     
-    internal: true     
+      then:
+        - script.execute: set_vol
+        - script.execute: rot_value_set
   - platform: homeassistant
     id: media_vol
     entity_id: ${media_player}
     attribute: volume_level
     internal: true
-    on_value:
-      - delay: 5s
-      - sensor.rotary_encoder.set_value:
-         id: spin_it
-         value: !lambda "return id(media_vol).state * 100;"
 text_sensor:
-
   - platform: homeassistant
     entity_id: ${media_player2}
     id: nowplay
@@ -155,6 +160,7 @@ text_sensor:
     entity_id: ${media_player2}
     id: app
     attribute: app_name
+
 font:
   - file: 'fonts/arial.ttf'
     id: font1
@@ -219,20 +225,24 @@ spi:
 display:
   - platform: ${display_platform}
     model: "${display_model}"
-    id: magic_square
+    id: screen
     reset_pin: ${pin_reset}
     cs_pin: ${pin_cs}
     dc_pin: ${pin_dc}
-    update_interval: 0.2s 
+    update_interval: 0.1s 
     brightness: 95%
     lambda: |-
       it.rectangle(0, 0, 128, 128, id(violet));
-      it.filled_rectangle(14, 3, id(spin_it).state, 18, id(green));
+      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(green));
       it.rectangle(13, 2, 102, 20, id(blue));
+      if (id(app).has_state()) {
       it.printf(64, 40, id(font3), id(green), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
+      } else {
+      it.print(64, 40, id(font3), TextAlign::BASELINE_CENTER, "Volume");
+      }
       it.print(2, 25, id(mdi2), id(red), "\U000F075E");
       it.print(100, 25, id(mdi2), id(green), "\U000F075D");
       it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
-      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(spin_it).state);
+      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
       it.printf(64, 123, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
       it.line(0, 110, 128, 110, id(violet));

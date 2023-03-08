@@ -23,10 +23,13 @@ substitutions:
   rotaty_a: "8"
   rotaty_b: "9" 
   num_leds: "12"
-  # Media player 1 = Video source 2 = volume level (can be the same) 
+  # Title Track Artist Channel etc... Text entity media entity
   media_player2: "media_player.appletv_4k"
-  media_player: "media_player.kodi_appletv"
+
+  #Volume Entity (can be same as media_player2)
+  media_player: "media_player.bedroom_smart_tv"
   
+  display_id: "oled"
 #######################################################
 #                   end user inputs                   #
 #######################################################
@@ -41,8 +44,6 @@ esphome:
           red: 0%
           green: 0%
           blue: 70%
-#      - delay: 5000ms
-#      - script.execute: rot_value_set
 ## NAME YOUR BOARD TYPE
 esp32:
   board: ${board_model}
@@ -108,7 +109,6 @@ binary_sensor:
         - ON for at least 5s
       then:
         - switch.toggle: switch1
-
 ##SCREEN ON / OFF
 switch:
   - platform: template
@@ -251,7 +251,8 @@ light:
       - random:
           name: Random Colors
           transition_length: .5s
-          update_interval: 1s          
+          update_interval: 1s
+          
       - strobe:
       - strobe:
           name: Police Strobe
@@ -272,7 +273,6 @@ light:
               duration: 50ms
             - state: false
               duration: 25ms
-      
 font:
   - file: 'fonts/arial.ttf'
     id: font1
