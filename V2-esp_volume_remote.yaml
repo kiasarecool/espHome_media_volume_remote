@@ -1,16 +1,13 @@
-## SET UP
 substitutions:
-  #GENRAL
   esphome_node_name: "esp32-feather-s2"
   board_model: "lolin_s2_mini"
   framework_type: "arduino"
   ap_pass: ""
-  esp_name: "ESP Volume Box"
-  time_id: "esptime"
-  #KEYS
+  esp_name: "Neopixel Volume"
+  # KEYS
   ota_pass: "9924eb48fd975e552539319184eaa9e7"
   encryption_key: "pzbulASkvRmJYZ5APG/0Y+ykKjnoIF96d8OXPGq8pnQ="
-  #DISPLAY
+  # DISPLAY
   display_platform: "ssd1351_spi"
   display_model: "SSD1351 128x128"
   spi_clk: "10"
@@ -18,18 +15,15 @@ substitutions:
   pin_reset: "14"
   pin_cs: "12"
   pin_dc: "13"
-  #ROTARY ENCODER
+  # ROTARY ENCODER
   rotaty_clk: "7"
   rotaty_a: "8"
   rotaty_b: "9" 
   num_leds: "12"
   # Title Track Artist Channel etc... Text entity media entity
   media_player2: "media_player.appletv_4k"
-
-  #Volume Entity (can be same as media_player2)
+  # Volume Entity (can be same as media_player2)
   media_player: "media_player.bedroom_smart_tv"
-  
-  display_id: "oled"
 #######################################################
 #                   end user inputs                   #
 #######################################################
@@ -38,24 +32,18 @@ esphome:
   on_boot:
     priority: -100
     then:
-      - light.turn_on:
-          id: leds  
-          brightness: 33%
-          red: 0%
-          green: 0%
-          blue: 70%
-## NAME YOUR BOARD TYPE
+      - script.execute: power_on    
+time:
+  - platform: homeassistant
+    id: esptime
 esp32:
   board: ${board_model}
   framework:
     type: ${framework_type}
-## DONT REMOVE
 logger:
-## DONT REMOVE
 api:
   encryption:
     key: "${encryption_key}"
-## DONT REMOVE
 ota:
   password: "${ota_pass}"
 wifi:
@@ -64,7 +52,7 @@ wifi:
   ap:
     ssid: "${esp_name} Hotspot"
     password: "${ap_pass}"
-## ROTATY CLICK
+#######################################################
 binary_sensor:
   - platform: gpio
     name: '${esp_name} Click'
@@ -78,54 +66,93 @@ binary_sensor:
     - timing: 
         - ON for at most 500ms     
       then: 
-        - homeassistant.service:
-            service: media_player.volume_mute
-            data_template:                 
-              is_volume_muted: "true"
-              entity_id: ${media_player} 
-        - light.turn_on: 
-            id: leds
-            brightness: 33%
-            red: 100%
-            green: 0%
-            blue: 0%
+        - script.execute: mute
     - timing: 
         - ON for at least 1s       
-      then:     
-            - homeassistant.service:
-                service: media_player.volume_mute
-                data_template:                 
-                  is_volume_muted: "false"
-                  entity_id: ${media_player}     
+      then: 
+        - script.execute: unmute        
     - timing:  
         - OFF for at most 500ms     
         - ON for at most 500ms
-      then:     
-            - homeassistant.service:
-                service: media_player.media_next_track
-                data_template:                 
-                  entity_id: ${media_player}  
+      then:
+        - script.execute: skip           
     - timing: 
         - ON for at least 5s
       then:
         - switch.toggle: switch1
-##SCREEN ON / OFF
+#######################################################
 switch:
   - platform: template
-    name: "${esp_name} Display"
-    
+    name: "${esp_name} Display"   
     optimistic: true
     restore_state: ON
     id: switch1
     turn_on_action:
-      - lambda: id(screen).turn_on();
-      - light.turn_on: 
-          id: leds
-          brightness: 40%
+      - lambda: id(screen).turn_on();    
     turn_off_action:
       - lambda: id(screen).turn_off();
       - light.turn_off: leds
+#######################################################
 script:
+  - id: skip
+    mode: single
+    then:
+      - homeassistant.service:
+          service: media_player.media_next_track
+          data_template:                 
+            entity_id: ${media_player} 
+  - id: mute
+    mode: single
+    then:
+      - homeassistant.service:
+          service: media_player.volume_mute
+          data_template:                 
+            is_volume_muted: "true"
+            entity_id: ${media_player}
+      - light.turn_on: 
+          id: leds
+          brightness: 33%
+          red: 100%
+          green: 0%
+          blue: 0%
+  - id: unmute
+    mode: single
+    then:
+      - homeassistant.service:
+          service: media_player.volume_mute
+          data_template:                 
+            is_volume_muted: "false"
+            entity_id: ${media_player} 
+  - id: power_on
+    mode: single
+    then:
+      - light.turn_on: 
+          id: leds
+          brightness: 30%
+          transition_length: 3s
+          red: 100%
+          green: 0%
+          blue: 0%
+      - delay: 7s
+      - light.turn_on: 
+          id: leds
+          brightness: 40%
+          transition_length: 3s
+          red: 75%
+          green: 37%
+          blue: 100%
+      - delay: 7s
+      - light.turn_on: 
+          id: leds
+          brightness: 40%
+          transition_length: 3s
+          red: 0%
+          green: 100%
+          blue: 0%
+      - delay: 10s
+      - light.turn_off: 
+          id: leds
+          transition_length: 2s
   - id: leds_down
     mode: queued
     then:
@@ -136,10 +163,10 @@ script:
           id: leds
           range_from: !lambda "return id(rot_enc1).state / 100 * 12;"
           range_to: 12
-          color_brightness: 35%
+          color_brightness: 30%
           red: 100%
-          green: 10%
-          blue: 25%     
+          green: 0%
+          blue: 35%     
       - light.turn_off: leds
   - id: leds_up
     mode: queued
@@ -151,18 +178,18 @@ script:
             id: leds
             range_from: 0
             range_to: !lambda "return id(rot_enc1).state / 100 * 12;"
-            color_brightness: 35%
-            red: 10%
+            color_brightness: 30%
+            red: 30%
             green: 100%
-            blue: 15%   
+            blue: 0%   
   - id: set_vol
     mode: queued
     then:
       - homeassistant.service:
-            service: media_player.volume_set
-            data_template:                 
-              volume_level: !lambda "return id(rot_enc1).state / 100;"
-              entity_id: ${media_player}   
+          service: media_player.volume_set
+          data_template:                 
+            volume_level: !lambda "return id(rot_enc1).state / 100;"
+            entity_id: ${media_player}   
   - id: rot_value_set
     mode: restart
     then:
@@ -170,7 +197,7 @@ script:
       - sensor.rotary_encoder.set_value:
          id: rot_enc1
          value: !lambda "return id(media_vol).state * 100;"
-## ROTARY ENCODER KNOB
+#######################################################
 sensor:
   - platform: rotary_encoder
     name: "${esp_name} Rotary Encoder"
@@ -188,7 +215,6 @@ sensor:
         - script.execute: leds_up
         - script.execute: set_vol
         - script.execute: rot_value_set
-       
     on_anticlockwise:
       then:
         - script.execute: leds_down
@@ -199,6 +225,7 @@ sensor:
     entity_id: ${media_player}
     attribute: volume_level
     internal: true
+#######################################################
 text_sensor:
   - platform: homeassistant
     entity_id: ${media_player2}
@@ -211,12 +238,7 @@ text_sensor:
   - platform: homeassistant
     entity_id: ${media_player2}
     id: app
-    attribute: app_name
-####################
-##                ##
-##      Light     ##
-##                ##
-####################
+#########################################################
 light:
   - platform: neopixelbus
     type: GRB
@@ -225,7 +247,7 @@ light:
     num_leds: ${num_leds}
     id: leds
     name: "${esp_name} LED Ring"
-    default_transition_length: 1000ms
+    default_transition_length: 1500ms
     restore_mode: ALWAYS_OFF
     effects:
       - addressable_scan:
@@ -245,14 +267,13 @@ light:
           update_interval: 1s
       - pulse:
           name: "Slow Pulse"
-          transition_length: 3s      # defaults to 1s
+          transition_length: 3s      
           update_interval: 5s
       - random:
       - random:
           name: Random Colors
-          transition_length: .5s
-          update_interval: 1s
-          
+          transition_length: 2s
+          update_interval: 4s          
       - strobe:
       - strobe:
           name: Police Strobe
@@ -273,15 +294,16 @@ light:
               duration: 50ms
             - state: false
               duration: 25ms
+#######################################################
 font:
   - file: 'fonts/arial.ttf'
     id: font1
     size: 18
   - file: "fonts/mdi.ttf"
     id: mdi2
-    size: 27
+    size: 15
     glyphs: [
-       "\U000F075E", #Volume -
+      "\U000F075E", #Volume -
       "\U000F075D", #vol +
       ]
   - file: 'fonts/arial.ttf'
@@ -304,6 +326,7 @@ font:
     id: font3
     size: 20
     glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+##########################################################
 color:
   - id: red
     red: 100%
@@ -330,10 +353,11 @@ color:
     green: 0%
     blue: 50%
     white: 5%
-##  128*128
+##########################################################
 spi:
   clk_pin: ${spi_clk}
   mosi_pin: ${spi_mosi}
+##########################################################
 display:
   - platform: ${display_platform}
     model: "${display_model}"
@@ -344,17 +368,18 @@ display:
     update_interval: 0.1s 
     brightness: 95%
     lambda: |-
-      it.rectangle(0, 0, 128, 128, id(violet));
-      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(green));
+      it.rectangle(0, 0, 128, 128, id(red));
+      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(blue));
       it.rectangle(13, 2, 102, 20, id(blue));
       if (id(app).has_state()) {
-      it.printf(64, 40, id(font3), id(green), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
+      it.print(64, 40, id(font3), id(violet), TextAlign::BASELINE_CENTER, "Volume");
       } else {
-      it.print(64, 40, id(font3), TextAlign::BASELINE_CENTER, "Volume");
+      it.printf(64, 40, id(font3), id(blue), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
       }
-      it.print(2, 25, id(mdi2), id(red), "\U000F075E");
-      it.print(100, 25, id(mdi2), id(green), "\U000F075D");
-      it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
-      it.printf(64, 99, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
-      it.printf(64, 123, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
-      it.line(0, 110, 128, 110, id(violet));
+      it.strftime(64, 55, id(font0), id(green), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
+      it.print(2, 18, id(mdi2), id(red), "\U000F075E");
+      it.print(115, 18, id(mdi2), id(green), "\U000F075D");
+      it.printf(64, 70, id(font0), id(blue), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
+      it.printf(64, 99, id(font2), id(violet), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
+      it.printf(64, 123, id(font00), id(blue), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
+      it.line(0, 110, 128, 110, id(red));
