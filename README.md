@@ -1,14 +1,17 @@
 # espHome_media_volume_remote
-Control Media entity volume with a display showing the volume level, app, artist and title on screen. Added neopixel ring for color feedback on Volume level
-Click once to mute
-Hold for 2s to un-mute
-Dbl click to skip track or next episode 
-Hold for 5s to toggle display and leds 
+Control Media entity volume with a display showing the volume level, artist and title on screen. Neopixel ring Volume level feedback.
+- Click once = mute
+- Hold for 2s = un-mute
+- Dbl click = ship
+- Hold for 5s = toggle display and leds 
 
-Clockwise = Volume +
-Anti-Clockwise = Volume - 
+- Clockwise = Volume +
+- Anti-Clockwise = Volume - 
 
-All text is on screen dynamic and changes based on what app, artist and title. ( or channel and show) 
+Display text is shown if available form media_payer2
+
+Other version-
+[Display only no LEDs - esp_volume_remote(Display Only).yaml]
 
 ![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/1.jpg)
 ![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/2.jpg)
