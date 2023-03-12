@@ -5,8 +5,8 @@ substitutions:
   ap_pass: ""
   esp_name: "Neopixel Volume"
   # KEYS
-  ota_pass: "9924eb48fd975e552539319184eaa9e7"
-  encryption_key: "pzbulASkvRmJYZ5APG/0Y+ykKjnoIF96d8OXPGq8pnQ="
+  ota_pass: "------------------------"
+  encryption_key: "------------------------"
   # DISPLAY
   display_platform: "ssd1351_spi"
   display_model: "SSD1351 128x128"
@@ -24,13 +24,23 @@ substitutions:
   media_player2: "media_player.appletv_4k"
   # Volume Entity (can be same as media_player2)
   media_player: "media_player.bedroom_smart_tv"
+  # Thermostat for HVAC mode
+  climate_entity: "climate.thermostat_2"
+  # optional input number helper for use with automation blueprint
+  # https://github.com/kiasarecool/HA-Blueprint-thermostat-2nd-sendor---Input_number
+  # set to same entity as climate_entity to not use an input_number
+  # and uncomment lines in the set_things script below and comment out existing action
+  input_number_entity: "input_number.target"
 #######################################################
 #                   end user inputs                   #
+#######################################################
+#       Click=Next Page - Double click=SKIP/NEXT      #
+#     Short Hold <2s=Mute - Hold >2s=Toggle Screen    #
 #######################################################
 esphome:
   name: ${esphome_node_name}
   on_boot:
-    priority: -100
+    priority: 250
     then:
       - script.execute: power_on    
 time:
@@ -60,24 +70,28 @@ binary_sensor:
     pin: ${rotaty_clk}
     internal: true
     filters:      
-      - delayed_off: 50ms
+      - delayed_off: 5ms
       - invert: 
     on_multi_click:
     - timing: 
-        - ON for at most 500ms     
+        - ON for 10ms to 500ms     
+        - OFF for at least 200ms
       then: 
+        - display.page.show_next: screen
+        - light.turn_off: leds
+        - script.execute: rot_set_value
+    - timing: 
+        - ON for 400ms to 2s
+      then:
         - script.execute: mute
     - timing: 
-        - ON for at least 1s       
-      then: 
-        - script.execute: unmute        
-    - timing:  
-        - OFF for at most 500ms     
-        - ON for at most 500ms
+        - ON for 10ms to 300ms 
+        - OFF for 10ms to 300ms     
+        - ON for 10ms to 300ms
       then:
         - script.execute: skip           
     - timing: 
-        - ON for at least 5s
+        - ON for at least 2.5s
       then:
         - switch.toggle: switch1
 #######################################################
@@ -94,6 +108,12 @@ switch:
       - light.turn_off: leds
 #######################################################
 script:
+
+  - id: set_delay
+    mode: restart
+    then:
+      - delay: 1500ms
+      - script.execute: set_thing
   - id: skip
     mode: single
     then:
@@ -105,31 +125,23 @@ script:
     mode: single
     then:
       - homeassistant.service:
-          service: media_player.volume_mute
+          service: media_player.volume_set
           data_template:                 
-            is_volume_muted: "true"
+            volume_level: "0"
             entity_id: ${media_player}
+      - sensor.rotary_encoder.set_value:
+          id: rot_enc1
+          value:
       - light.turn_on: 
           id: leds
-          brightness: 33%
-          red: 100%
-          green: 0%
-          blue: 0%
-  - id: unmute
-    mode: single
-    then:
-      - homeassistant.service:
-          service: media_player.volume_mute
-          data_template:                 
-            is_volume_muted: "false"
-            entity_id: ${media_player} 
+          effect: s_pulse
   - id: power_on
     mode: single
     then:
       - light.turn_on: 
           id: leds
           brightness: 30%
-          transition_length: 3s
+          transition_length: 2s
           red: 100%
           green: 0%
           blue: 0%
@@ -137,7 +149,7 @@ script:
       - light.turn_on: 
           id: leds
           brightness: 40%
-          transition_length: 3s
+          transition_length: 2s
           red: 75%
           green: 37%
           blue: 100%
@@ -145,20 +157,21 @@ script:
       - light.turn_on: 
           id: leds
           brightness: 40%
-          transition_length: 3s
+          transition_length: 2s
           red: 0%
           green: 100%
           blue: 0%
       - delay: 10s
       - light.turn_off: 
           id: leds
-          transition_length: 2s
+          transition_length: 6s
   - id: leds_down
     mode: queued
     then:
       - light.turn_on:
           id: leds
           brightness: 0%
+          effect: "none"
       - light.addressable_set:
           id: leds
           range_from: !lambda "return id(rot_enc1).state / 100 * 12;"
@@ -166,14 +179,16 @@ script:
           color_brightness: 30%
           red: 100%
           green: 0%
-          blue: 35%     
+          blue: 35% 
+      - delay: 500ms    
       - light.turn_off: leds
   - id: leds_up
     mode: queued
     then:
-        - light.turn_on: 
-            id: leds
-            brightness: 0%
+      - light.turn_on:
+          id: leds
+          brightness: 0%
+          effect: "none"
         - light.addressable_set:
             id: leds
             range_from: 0
@@ -182,21 +197,61 @@ script:
             red: 30%
             green: 100%
             blue: 0%   
-  - id: set_vol
-    mode: queued
-    then:
-      - homeassistant.service:
-          service: media_player.volume_set
-          data_template:                 
-            volume_level: !lambda "return id(rot_enc1).state / 100;"
-            entity_id: ${media_player}   
-  - id: rot_value_set
+      - delay: 500ms    
+      - light.turn_off: leds
+  - id: rot_set_value
     mode: restart
     then:
-      - delay: 3000ms
-      - sensor.rotary_encoder.set_value:
-         id: rot_enc1
-         value: !lambda "return id(media_vol).state * 100;"
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: vol_page
+            then:
+              - sensor.rotary_encoder.set_value:
+                 id: rot_enc1
+                 value: !lambda "return id(media_vol).state * 100;"
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: hvac_page
+            then:
+              - sensor.rotary_encoder.set_value:
+                  id: rot_enc1
+                  value: !lambda "return id(${input_number_entity}).state * 2;" # comment out to disable input_number
+#                  !lambda "return id(${climate_entity}).state * 2;"            # uncomment to disable input_number
+  - id: set_thing
+    mode: queued
+    then:
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: hvac_page
+            then:
+                - homeassistant.service:                                # comment out to disable input_number
+                    service: input_number.set_value                     #
+                    data_template:                                      #
+                      value: !lambda "return id(rot_enc1).state / 2;"   #
+                      entity_id: ${input_number_entity}                 # comment out to disable input_number
+#            then:
+#                - homeassistant.service:                                      # uncomment to disable input_number
+#                    service: climate.set_temperature                          #
+#                    data_template:                                            #
+#                      temperature: !lambda "return id(rot_enc1).state / 2;"   #
+#                      entity_id: ${climate_entity}                            # uncomment to disable input_number
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: vol_page
+            then:
+                - homeassistant.service:
+                    service: media_player.volume_set
+                    data_template:                 
+                      volume_level: !lambda "return id(rot_enc1).state / 100;"
+                      entity_id: ${media_player} 
 #######################################################
 sensor:
   - platform: rotary_encoder
@@ -208,23 +263,27 @@ sensor:
     restore_mode: RESTORE_DEFAULT_ZERO
     publish_initial_value: true
     min_value: 0
-    max_value: 100
+    max_value: 200
     internal: true
     on_clockwise:
       then:
         - script.execute: leds_up
-        - script.execute: set_vol
-        - script.execute: rot_value_set
+        - script.execute: set_thing
     on_anticlockwise:
       then:
         - script.execute: leds_down
-        - script.execute: set_vol
-        - script.execute: rot_value_set
+        - script.execute: set_thing
   - platform: homeassistant
     id: media_vol
     entity_id: ${media_player}
     attribute: volume_level
     internal: true
+  - platform: homeassistant
+    entity_id:${input_number_entity}.target
+    id: target      
+  - platform: homeassistant
+    entity_id: sensor.average_indoor_temperature
+    id: avg_temp
 #######################################################
 text_sensor:
   - platform: homeassistant
@@ -238,6 +297,13 @@ text_sensor:
   - platform: homeassistant
     entity_id: ${media_player2}
     id: app
+  - platform: homeassistant
+    id: hvac_txt
+    entity_id: ${climate_entity}
+    attribute: hvac_action
+  - platform: homeassistant
+    id: hvac_mode
+    entity_id: ${climate_entity}
 #########################################################
 light:
   - platform: neopixelbus
@@ -267,8 +333,13 @@ light:
           update_interval: 1s
       - pulse:
           name: "Slow Pulse"
+          id: s_pulse
           transition_length: 3s      
           update_interval: 5s
+            brightness: 33%
+            red: 100%
+            green: 0%
+            blue: 0%
       - random:
       - random:
           name: Random Colors
@@ -367,19 +438,33 @@ display:
     dc_pin: ${pin_dc}
     update_interval: 0.1s 
     brightness: 95%
-    lambda: |-
-      it.rectangle(0, 0, 128, 128, id(red));
-      it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(blue));
-      it.rectangle(13, 2, 102, 20, id(blue));
-      if (id(app).has_state()) {
-      it.print(64, 40, id(font3), id(violet), TextAlign::BASELINE_CENTER, "Volume");
-      } else {
-      it.printf(64, 40, id(font3), id(blue), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
-      }
-      it.strftime(64, 55, id(font0), id(green), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
-      it.print(2, 18, id(mdi2), id(red), "\U000F075E");
-      it.print(115, 18, id(mdi2), id(green), "\U000F075D");
-      it.printf(64, 70, id(font0), id(blue), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
-      it.printf(64, 99, id(font2), id(violet), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
-      it.printf(64, 123, id(font00), id(blue), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
-      it.line(0, 110, 128, 110, id(red));
+    pages:
+      - id: vol_page
+        lambda: |-
+          it.rectangle(0, 0, 128, 128, id(blue));
+          it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(blue));
+          it.rectangle(13, 2, 102, 20, id(violet));
+          if (id(app).has_state()) {
+          it.printf(64, 40, id(font3), id(blue), TextAlign::BASELINE_CENTER, "%s", id(app).state.c_str());
+          } else {
+          it.print(64, 40, id(font3), id(violet), TextAlign::BASELINE_CENTER, "Volume");
+          }
+          it.strftime(64, 55, id(font0), id(green), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
+          it.print(2, 18, id(mdi2), id(red), "\U000F075E");
+          it.print(115, 18, id(mdi2), id(green), "\U000F075D");
+          it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
+          it.printf(64, 99, id(font2), id(violet), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
+          it.printf(64, 123, id(font00), id(blue), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
+          it.line(0, 110, 128, 110, id(blue));
+      - id: hvac_page
+        lambda: |-
+          it.rectangle(0, 0, 128, 128, id(blue));
+          it.filled_rectangle(54, 3, ((id(${input_number_entity}).state - 60) * 2), 18, id(blue));
+          it.rectangle(53, 2, 40, 20, id(violet));
+          it.printf(70, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(avg_temp).state);
+          it.print(75, 60, id(font0), id(blue_green), "Average");
+          it.printf(3, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(${input_number_entity}).state);
+          it.printf(8, 60, id(font0), id(blue_green), "Target");
+
+
+
