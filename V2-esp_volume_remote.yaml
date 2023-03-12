@@ -5,8 +5,8 @@ substitutions:
   ap_pass: ""
   esp_name: "Neopixel Volume"
   # KEYS
-  ota_pass: "------------------------"
-  encryption_key: "------------------------"
+  ota_pass: ""
+  encryption_key: ""
   # DISPLAY
   display_platform: "ssd1351_spi"
   display_model: "SSD1351 128x128"
@@ -21,9 +21,11 @@ substitutions:
   rotaty_b: "9" 
   num_leds: "12"
   # Title Track Artist Channel etc... Text entity media entity
-  media_player2: "media_player.appletv_4k"
-  # Volume Entity (can be same as media_player2)
-  media_player: "media_player.bedroom_smart_tv"
+  media2: "media_player.appletv_4k"
+  # Volume Entity (can be same as media2)
+  media1: "media_player.bedroom_smart_tv"
+  # 3rd media player
+  media3: "media_player.homepod_mini"
   # Thermostat for HVAC mode
   climate_entity: "climate.thermostat_2"
   # optional input number helper for use with automation blueprint
@@ -42,7 +44,10 @@ esphome:
   on_boot:
     priority: 250
     then:
-      - script.execute: power_on    
+      - script.execute: power_on   
+      - sensor.rotary_encoder.set_value:
+          id: rot_enc1 
+          value: "20" 
 time:
   - platform: homeassistant
     id: esptime
@@ -112,23 +117,63 @@ script:
   - id: set_delay
     mode: restart
     then:
-      - delay: 1500ms
-      - script.execute: set_thing
+      - delay: 10000ms
+       
   - id: skip
     mode: single
     then:
-      - homeassistant.service:
-          service: media_player.media_next_track
-          data_template:                 
-            entity_id: ${media_player} 
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: vol_page
+            then:
+              - homeassistant.service:
+                  service: media_player.media_next_track
+                  data_template:                 
+                    entity_id: ${media2}               
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: music_page
+            then:
+              - homeassistant.service:
+                  service: media_player.media_next_track
+                  data_template:                 
+                    entity_id: ${media3} 
   - id: mute
     mode: single
     then:
-      - homeassistant.service:
-          service: media_player.volume_set
-          data_template:                 
-            volume_level: "0"
-            entity_id: ${media_player}
+
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: vol_page
+            then:
+              - homeassistant.service:
+                  service: media_player.volume_set
+                  data_template:                 
+                    volume_level: "0"
+                    entity_id: ${media1}
+              - sensor.rotary_encoder.set_value:
+                  id: rot_enc1
+                  value: "0"
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: music_page
+            then:
+              - homeassistant.service:
+                  service: media_player.media_play_pause
+                  data_template:                 
+                    entity_id: ${media3}
+  - id: mute3
+    mode: single
+    then:
+
       - sensor.rotary_encoder.set_value:
           id: rot_enc1
           value: "0"
@@ -143,7 +188,7 @@ script:
           red: 100%
           green: 0%
           blue: 0%
-      - delay: 7s
+      - delay: 4s
       - light.turn_on: 
           id: leds
           brightness: 40%
@@ -151,7 +196,7 @@ script:
           red: 75%
           green: 37%
           blue: 100%
-      - delay: 7s
+      - delay: 4s
       - light.turn_on: 
           id: leds
           brightness: 40%
@@ -159,34 +204,31 @@ script:
           red: 0%
           green: 100%
           blue: 0%
-      - delay: 10s
+      - delay: 5s
       - light.turn_off: 
           id: leds
-          transition_length: 6s
+          transition_length: 4s
   - id: leds_down
     mode: queued
     then:
       - light.turn_on:
           id: leds
           brightness: 0%
-          effect: "none"
       - light.addressable_set:
           id: leds
           range_from: !lambda "return id(rot_enc1).state / 100 * 12;"
           range_to: 12
           color_brightness: 30%
-          red: 100%
-          green: 0%
-          blue: 35% 
-      - delay: 500ms    
-      - light.turn_off: leds
+          red: 55%
+          green: 28%
+          blue: 24% 
+
   - id: leds_up
     mode: queued
     then:
       - light.turn_on:
           id: leds
           brightness: 0%
-          effect: "none"
       - light.addressable_set:
           id: leds
           range_from: 0
@@ -195,8 +237,7 @@ script:
           red: 30%
           green: 100%
           blue: 0%   
-      - delay: 500ms    
-      - light.turn_off: leds
+
   - id: rot_set_value
     mode: restart
     then:
@@ -219,6 +260,15 @@ script:
                   id: rot_enc1
                   value: !lambda "return id(target).state * 2;" # comment out to disable input_number
 #                  !lambda "return id(${climate_entity}).state * 2;"            # uncomment to disable input_number
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: music_page
+            then:
+              - sensor.rotary_encoder.set_value:
+                 id: rot_enc1
+                 value: !lambda "return id(media_vol3).state * 100;"
   - id: set_thing
     mode: queued
     then:
@@ -249,7 +299,18 @@ script:
                     service: media_player.volume_set
                     data_template:                 
                       volume_level: !lambda "return id(rot_enc1).state / 100;"
-                      entity_id: ${media_player} 
+                      entity_id: ${media1} 
+      - if:
+            condition:
+              display.is_displaying_page:
+                id: screen
+                page_id: music_page
+            then:
+                - homeassistant.service:
+                    service: media_player.volume_set
+                    data_template:                 
+                      volume_level: !lambda "return id(rot_enc1).state / 100;"
+                      entity_id: ${media3} 
 #######################################################
 sensor:
   - platform: rotary_encoder
@@ -273,7 +334,12 @@ sensor:
         - script.execute: set_thing
   - platform: homeassistant
     id: media_vol
-    entity_id: ${media_player}
+    entity_id: ${media1}
+    attribute: volume_level
+    internal: true
+  - platform: homeassistant
+    id: media_vol3
+    entity_id: ${media3}
     attribute: volume_level
     internal: true
   - platform: homeassistant
@@ -285,16 +351,27 @@ sensor:
 #######################################################
 text_sensor:
   - platform: homeassistant
-    entity_id: ${media_player2}
+    entity_id: ${media2}
     id: nowplay
     attribute: media_title
   - platform: homeassistant
-    entity_id: ${media_player2}
+    entity_id: ${media2}
     id: artist
     attribute: media_artist
   - platform: homeassistant
-    entity_id: ${media_player2}
+    entity_id: ${media2}
     id: app
+  - platform: homeassistant
+    entity_id: ${media3}
+    id: nowplay3
+    attribute: media_title
+  - platform: homeassistant
+    entity_id: ${media3}
+    id: artist3
+    attribute: media_artist
+  - platform: homeassistant
+    entity_id: ${media3}
+    id: app3
   - platform: homeassistant
     id: hvac_txt
     entity_id: ${climate_entity}
@@ -302,6 +379,10 @@ text_sensor:
   - platform: homeassistant
     id: hvac_mode
     entity_id: ${climate_entity}
+  - platform: homeassistant
+    id: fan
+    entity_id: ${climate_entity}
+    attribute: fan_mode
 #########################################################
 light:
   - platform: neopixelbus
@@ -331,13 +412,10 @@ light:
           update_interval: 1s
       - pulse:
           name: "Slow Pulse"
-          id: s_pulse
           transition_length: 3s      
           update_interval: 5s
-            brightness: 33%
-            red: 100%
-            green: 0%
-            blue: 0%
+
+
       - random:
       - random:
           name: Random Colors
@@ -367,13 +445,38 @@ light:
 font:
   - file: 'fonts/arial.ttf'
     id: font1
-    size: 18
+    size: 30
+    glyphs: '󰈐^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
+
+  - file: "fonts/mdi.ttf"
+    id: mdi3
+    size: 25
+    glyphs: [
+      "\U000F075E", #Volume -
+      "\U000F075D", #vol +
+      "\U000F0717", #snowflake
+      "\U000F0238", # Fire
+      "\U000F0210", # Fan
+      ]
+  - file: "fonts/mdi.ttf"
+    id: mdi
+    size: 20
+    glyphs: [
+      "\U000F075E", #Volume -
+      "\U000F075D", #vol +
+      "\U000F0717", #snowflake
+      "\U000F0238", # Fire
+      "\U000F0210", # Fan
+      ]
   - file: "fonts/mdi.ttf"
     id: mdi2
     size: 15
     glyphs: [
       "\U000F075E", #Volume -
       "\U000F075D", #vol +
+      "\U000F0717", #snowflake
+      "\U000F0238", # Fire
+      "\U000F0210", # Fan
       ]
   - file: 'fonts/arial.ttf'
     id: font0
@@ -387,9 +490,9 @@ font:
     id: font2
     size: 30
     glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
-  - file: 'fonts/arial.ttf'
+  - file: 'fonts/BebasNeue-Regular.ttf'
     id: font4
-    size: 60
+    size: 25
     glyphs: '^…*/|\$#<>!?"%()[]+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz&''’'
   - file: 'fonts/arial.ttf'
     id: font3
@@ -398,30 +501,30 @@ font:
 ##########################################################
 color:
   - id: red
-    red: 100%
-    green: 0%
-    blue: 0%
+    red: 62%
+    green: 7%
+    blue: 4%
     white: 0%
   - id: blue
     red: 0%
     green: 0%
-    blue: 100%
+    blue: 90%
     white: 0%
   - id: blue_green
-    red: 0%
-    green: 50%
-    blue: 50%
-    white: 5%
+    red: 23%
+    green: 52%
+    blue: 44%
+    white: 0%
   - id: green
     red: 0%
-    green: 100%
-    blue: 0%
+    green: 69%
+    blue: 20%
     white: 0%
   - id: violet
-    red: 50%
-    green: 0%
-    blue: 50%
-    white: 5%
+    red: 33%
+    green: 10%
+    blue: 55%
+    white: 0%
 ##########################################################
 spi:
   clk_pin: ${spi_clk}
@@ -450,20 +553,41 @@ display:
           it.strftime(64, 55, id(font0), id(green), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
           it.print(2, 18, id(mdi2), id(red), "\U000F075E");
           it.print(115, 18, id(mdi2), id(green), "\U000F075D");
-          it.printf(64, 70, id(font0), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
-          it.printf(64, 99, id(font2), id(violet), TextAlign::BASELINE_CENTER, "%.0f%", id(rot_enc1).state);
+          it.printf(64, 70, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay).state.c_str());
+          it.printf(64, 99, id(font1), id(violet), TextAlign::BASELINE_CENTER, "[%.0f%]", id(rot_enc1).state);
           it.printf(64, 123, id(font00), id(blue), TextAlign::BASELINE_CENTER, "%s", id(artist).state.c_str());
           it.line(0, 110, 128, 110, id(blue));
       - id: hvac_page
         lambda: |-
           it.rectangle(0, 0, 128, 128, id(blue));
-          it.filled_rectangle(54, 3, ((id(target).state - 60) * 2), 18, id(blue));
-          it.rectangle(53, 2, 40, 20, id(violet));
-          it.printf(70, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(avg_temp).state);
-          it.print(75, 60, id(font0), id(blue_green), "Average");
-          it.printf(3, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(target).state);
-          it.printf(8, 60, id(font0), id(blue_green), "Target");
-          it.printf(2, 0, id(font2), id(blue), TextAlign::BASELINE_CENTER, "%s -%s",id(hvac_mode).state.c_str(), id(hvac_txt).state.c_str());
-
-
-
+          it.filled_rectangle(24, 3, ((id(target).state - 60) * 4), 15, id(violet));
+          it.rectangle(23, 2, 82, 17, id(violet));
+          it.printf(32, 58, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.1f°", id(avg_temp).state);
+          it.print(32, 68, id(font0), id(blue_green), TextAlign::BASELINE_CENTER, "Average");
+          it.printf(96, 58, id(font2), id(green), TextAlign::BASELINE_CENTER, "%.1f°", id(target).state);
+          it.printf(96, 68, id(font0), id(blue_green), TextAlign::BASELINE_CENTER, "Target");
+          it.printf(64, 125, id(font4), id(violet), TextAlign::BASELINE_CENTER, "%s %s",id(hvac_mode).state.c_str(), id(hvac_txt).state.c_str());
+          it.line(0, 102, 128, 102, id(blue));
+          it.print(11, 17, id(mdi), id(blue), TextAlign::BASELINE_CENTER, "\U000F0717");
+          it.print(117, 17, id(mdi), id(red), TextAlign::BASELINE_CENTER, "\U000F0238");
+          it.printf(64, 100, id(font4), id(violet), TextAlign::BASELINE_CENTER, "%s", id(fan).state.c_str());
+          it.line(0, 75, 128, 75, id(blue));
+          it.print(25, 100, id(mdi3), id(blue), TextAlign::BASELINE_CENTER, "\U000F0210");
+          
+      - id: music_page
+        lambda: |-
+          it.rectangle(0, 0, 128, 128, id(red));
+          it.filled_rectangle(14, 3, id(rot_enc1).state, 18, id(blue));
+          it.rectangle(13, 2, 102, 20, id(violet));
+          if (id(app).has_state()) {
+          it.printf(64, 40, id(font3), id(blue), TextAlign::BASELINE_CENTER, "%s", id(app3).state.c_str());
+          } else {
+          it.print(64, 40, id(font3), id(violet), TextAlign::BASELINE_CENTER, "Volume");
+          }
+          it.strftime(64, 55, id(font0), id(green), TextAlign::BASELINE_CENTER, "%H:%M", id(esptime).now());
+          it.print(2, 18, id(mdi2), id(red), "\U000F075E");
+          it.print(115, 18, id(mdi2), id(green), "\U000F075D");
+          it.printf(64, 70, id(font00), id(green), TextAlign::BASELINE_CENTER, "%s", id(nowplay3).state.c_str());
+          it.printf(64, 99, id(font1), id(red), TextAlign::BASELINE_CENTER, "[%.0f%]", id(rot_enc1).state);
+          it.printf(64, 123, id(font00), id(blue), TextAlign::BASELINE_CENTER, "%s", id(artist3).state.c_str());
+          it.line(0, 110, 128, 110, id(red));
