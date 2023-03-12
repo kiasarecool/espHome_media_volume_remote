@@ -131,10 +131,8 @@ script:
             entity_id: ${media_player}
       - sensor.rotary_encoder.set_value:
           id: rot_enc1
-          value:
-      - light.turn_on: 
-          id: leds
-          effect: s_pulse
+          value: "0"
+
   - id: power_on
     mode: single
     then:
@@ -189,14 +187,14 @@ script:
           id: leds
           brightness: 0%
           effect: "none"
-        - light.addressable_set:
-            id: leds
-            range_from: 0
-            range_to: !lambda "return id(rot_enc1).state / 100 * 12;"
-            color_brightness: 30%
-            red: 30%
-            green: 100%
-            blue: 0%   
+      - light.addressable_set:
+          id: leds
+          range_from: 0
+          range_to: !lambda "return id(rot_enc1).state / 100 * 12;"
+          color_brightness: 30%
+          red: 30%
+          green: 100%
+          blue: 0%   
       - delay: 500ms    
       - light.turn_off: leds
   - id: rot_set_value
@@ -219,7 +217,7 @@ script:
             then:
               - sensor.rotary_encoder.set_value:
                   id: rot_enc1
-                  value: !lambda "return id(${input_number_entity}).state * 2;" # comment out to disable input_number
+                  value: !lambda "return id(target).state * 2;" # comment out to disable input_number
 #                  !lambda "return id(${climate_entity}).state * 2;"            # uncomment to disable input_number
   - id: set_thing
     mode: queued
@@ -279,7 +277,7 @@ sensor:
     attribute: volume_level
     internal: true
   - platform: homeassistant
-    entity_id:${input_number_entity}.target
+    entity_id: ${input_number_entity}
     id: target      
   - platform: homeassistant
     entity_id: sensor.average_indoor_temperature
@@ -459,12 +457,13 @@ display:
       - id: hvac_page
         lambda: |-
           it.rectangle(0, 0, 128, 128, id(blue));
-          it.filled_rectangle(54, 3, ((id(${input_number_entity}).state - 60) * 2), 18, id(blue));
+          it.filled_rectangle(54, 3, ((id(target).state - 60) * 2), 18, id(blue));
           it.rectangle(53, 2, 40, 20, id(violet));
           it.printf(70, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(avg_temp).state);
           it.print(75, 60, id(font0), id(blue_green), "Average");
-          it.printf(3, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(${input_number_entity}).state);
+          it.printf(3, 60, id(font2), id(green), TextAlign::BASELINE_LEFT, "%.1f°", id(target).state);
           it.printf(8, 60, id(font0), id(blue_green), "Target");
+          it.printf(2, 0, id(font2), id(blue), TextAlign::BASELINE_CENTER, "%s -%s",id(hvac_mode).state.c_str(), id(hvac_txt).state.c_str());
 
 
 
