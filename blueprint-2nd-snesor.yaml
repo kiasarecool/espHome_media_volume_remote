@@ -1,0 +1,72 @@
+blueprint:
+  name: Theromstat adjustment in °F using remote temperature sensor Using input_number helper
+  description: 'Sets target temperature depending on second temperature sensor. This
+    blueprint is inspired by https://community.home-assistant.io/t/target-temperature-adjustment-depending-on-second-temperature-sensor/297287
+    created by nevesenin.
+
+
+    '
+  domain: automation
+  
+    
+  input:
+    temperature_sensor:
+      name: Temperature sensor
+      description: This sensor will be used as the source.
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+          multiple: false
+    thermostat:
+      name: Thermostat
+      description: The thermostat to set target temperature
+      selector:
+        entity:
+          domain: climate
+          multiple: false
+
+  source_url: https://gist.github.com/nevesenin/b875af76de99a287ff3834b988edcd4c/raw/310244ad4780794987e53ef05e2b7e41fcee25ea/target_temperature_adjustment_fahrenheit.yaml
+variables:
+  thermostat: !input thermostat
+  temperature_sensor: !input temperature_sensor
+  target_temperature: '{{ states(target) | float }}'
+  actual_temperature: '{{ states(temperature_sensor) | float }}'
+  calculated_adjustment: '{{ target - actual_temperature }}'
+  calculated_target_temperature: '{{ ( target + calculated_adjustment
+    ) | round }}'
+sensor:
+  - plafrorm: state
+    entity_id: input_number.target
+    id: target
+trigger:
+- platform: state
+  entity_id: !input thermostat
+  attribute: '{{ current_temperature_attribute }}'
+- platform: state
+  entity_id: !input temperature_sensor
+condition: '{{ calculated_adjustment != 0 }}'
+action:
+- service: system_log.write
+  data:
+    message: '{{ thermostat }} has temp difference of {{ calculated_adjustment }}.
+      Setting target temperature to {{ calculated_target_temperature }}
+
+      '
+    level: info
+    logger: blueprints.nevesenin.target_temperature_adjustment_fahrenheit
+- service: system_log.write
+  data:
+    message: 'thermostat: {{ thermostat }}, temperature_sensor: {{ temperature_sensor
+      }}, target_temperature: {{ target }}, actual_temperature: {{ actual_temperature
+      }}, calculated_adjustment: {{ calculated_adjustment }}, calculated_target_temperature:
+      {{ calculated_target_temperature }}
+
+      '
+    level: debug
+    logger: blueprints.nevesenin.target_temperature_adjustment_fahrenheit
+- service: climate.set_temperature
+  data:
+    temperature: '{{ calculated_target_temperature }}'
+    entity_id: '{{ thermostat }}'
+mode: single

@@ -1,15 +1,24 @@
 # espHome_media_volume_remote
-Control Media entity volume with a display showing the volume level, artist and title on screen. Neopixel ring Volume level feedback.
-- Click once = mute
-- Hold for 2s = un-mute
-- Dbl click = ship
-- Hold for 5s = toggle display and leds 
 
+First put blueprint-2nd-snesor.yaml into /config/blueprints
+2 Set up input_number helper with the name ' target ' (optional use 'average sensor' for remote sensor!)
+3 Make automation from blueprint, name does not matter.
+4 Change substutions in esp_volume_remote.yaml
+5 on espHome click create new, name it esp_volume_remote, flash and adopt(save the keys and board type etc, put those in esp_volume_remote.yaml)
+6 edit new espHome node, copy and paste edited esp_volume_remote.yaml indo congfig
+7 add devide to home assistant
+Enjoy!
+
+Control Media entity volume with a display showing the volume level, artist and title on screen. Neopixel ring Volume level feedback.
+#######################################################
+#       Click=Next Page - Double click=SKIP/NEXT      #
+#     Short Hold <2s=Mute - Hold >2s=Toggle Screen    #
+#######################################################
 - Clockwise = Volume +
 - Anti-Clockwise = Volume - 
 
 Display text is shown if available form media_payer2
-
+Media3 is for the 3rd page media player (has to be same entity for audio and video )
 Other version-
 [Display only no LEDs - esp_volume_remote(Display Only).yaml]
 
