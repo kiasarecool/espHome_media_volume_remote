@@ -1,6 +1,6 @@
 # espHome_media_volume_remote
 
-First put blueprint-2nd-snesor.yaml into /config/blueprints
+First, put blueprint-2nd-snesor.yaml into /config/blueprints
 2 Set up input_number helper with the name ' target ' (optional use 'average sensor' for remote sensor!)
 3 Make automation from blueprint, name does not matter.
 4 Change substutions in esp_volume_remote.yaml
@@ -14,7 +14,7 @@ Control Media entity volume with a display showing the volume level, artist and 
 #       Click=Next Page - Double click=SKIP/NEXT      #
 #     Short Hold <2s=Mute - Hold >2s=Toggle Screen    #
 #######################################################
-- Clockwise = Volume +
+- Clockwise = Volume +   
 - Anti-Clockwise = Volume - 
 
 Display text is shown if available form media_payer2
