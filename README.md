@@ -22,9 +22,9 @@ Media3 is for the 3rd page media player (has to be same entity for audio and vid
 Other version-
 [Display only no LEDs - esp_volume_remote(Display Only).yaml]
 
-![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/1.jpg)
-![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/2.jpg)
-![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/3.jpg)
+![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/02.jpg)
+![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/01.jpg)
+![image](https://github.com/kiasarecool/espHome_media_volume_remote/blob/main/pics/03.jpg)
 
 Parts:
 
